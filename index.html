@@ -1,12 +1,9 @@
----
----
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Run Club MVP</title>
-  <!-- Disable Jekyll with empty front matter above -->
   <!-- React & Tailwind -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -25,123 +22,198 @@
 <body>
   <div id="root"></div>
   <script type="text/babel">
-  (() => {
-    'use strict';
-    const { useState, useContext, createContext } = React;
+    (function() {
+      'use strict';
+      const { useState, useContext, createContext } = React;
 
-    // Auth Context
-    const AuthContext = createContext(null);
-    const useAuth = () => {
-      const ctx = useContext(AuthContext);
-      if (!ctx) throw new Error('useAuth must be inside AuthProvider');
-      return ctx;
-    };
-    const AuthProvider = ({ children }) => {
-      const [user, setUser] = useState(null);
-      const login = () => setUser({ id: '1', name: 'Alex Runner', avatar: 'https://ui-avatars.com/api/?name=Alex+Runner&background=0066CC&color=fff' });
-      const logout = () => setUser(null);
-      return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
-    };
+      // Auth Context
+      const AuthContext = createContext(null);
+      const useAuth = () => {
+        const ctx = useContext(AuthContext);
+        if (!ctx) throw new Error('useAuth must be inside AuthProvider');
+        return ctx;
+      };
+      const AuthProvider = ({ children }) => {
+        const [user, setUser] = useState(null);
+        const login = () => setUser({ id: '1', name: 'Alex Runner', avatar: 'https://ui-avatars.com/api/?name=Alex+Runner&background=0066CC&color=fff' });
+        const logout = () => setUser(null);
+        return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+      };
 
-    // Safety Gate
-    const SafetyGate = ({ onAccept }) => (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-        <div className="bg-white p-6 rounded-lg max-w-md">
-          <h2 className="text-2xl mb-4">Safety First</h2>
-          <ul className="list-disc pl-5 mb-6">
-            <li>You are 16 or older</li>
-            <li>Meet in public places only</li>
-            <li>Run at your own risk</li>
-          </ul>
-          <button onClick={onAccept} className="px-4 py-2 bg-blue-600 text-white rounded">I Understand</button>
-        </div>
-      </div>
-    );
-
-    // Login Screen
-    const LoginScreen = () => {
-      const { login } = useAuth();
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-            <h1 className="text-3xl mb-4">The Run Club</h1>
-            <button onClick={login} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded">
-              <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92z"/></svg>
-              Continue with Google
-            </button>
+      // Safety Gate
+      function SafetyGate({ onAccept }) {
+        return (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2 className="text-2xl mb-4">Safety First</h2>
+              <ul className="list-disc pl-5 mb-6">
+                <li>You are 16 or older</li>
+                <li>Meet in public places only</li>
+                <li>Run at your own risk</li>
+              </ul>
+              <button onClick={onAccept} className="px-4 py-2 bg-blue-600 text-white rounded">I Understand</button>
+            </div>
           </div>
-        </div>
-      );
-    };
+        );
+      }
 
-    // Formatters
-    const formatPace = spk => {
-      const m = Math.floor(spk / 60);
-      const s = spk % 60;
-      return `${m}:${s.toString().padStart(2, '0')}/km`;
-    };
-    const formatDate = dt => {
-      const today = new Date(); const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-      if (dt.toDateString() === today.toDateString()) return 'Today';
-      if (dt.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-      return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(dt);
-    };
-    const formatTime = dt => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(dt);
+      // Login Screen
+      function LoginScreen() {
+        const { login } = useAuth();
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+              <h1 className="text-3xl mb-4">The Run Club</h1>
+              <button onClick={login} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded">
+                <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92z"/></svg>
+                Continue with Google
+              </button>
+            </div>
+          </div>
+        );
+      }
 
-    // Mock runs
-    const runs = [
-      { id: '1', title: 'Chatty 5K', description: 'Social 5K around Hyde Park.', userName: 'Sarah Chen', paceSecPerKm: 300, distanceKm: 5, startTime: new Date(Date.now() + 3600000), status: 'planned', meetingPoint: { lat: 51.5074, lng: -0.1278 } },
-      { id: '2', title: 'Marathon Training Social', description: '10K prep run.', userName: 'Marcus Johnson', paceSecPerKm: 420, distanceKm: 10, startTime: new Date(Date.now() + 7200000), status: 'planned', meetingPoint: { lat: 51.5033, lng: -0.1196 } },
-      { id: '3', title: 'Evening 8K', description: 'Relaxed city run.', userName: 'Priya Patel', paceSecPerKm: 360, distanceKm: 8, startTime: new Date(Date.now() + 86400000), status: 'planned', meetingPoint: { lat: 51.5145, lng: -0.0755 } }
-    ];
+      // Formatters
+      const formatPace = spk => {
+        const m = Math.floor(spk / 60), s = spk % 60;
+        return `${m}:${s.toString().padStart(2, '0')}/km`;
+      };
+      const formatDate = dt => {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        if (dt.toDateString() === today.toDateString()) return 'Today';
+        if (dt.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+        return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).format(dt);
+      };
+      const formatTime = dt => new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(dt);
 
-    // InstagramGallery & ChatPanel (demo)
-    const InstagramGallery = ({ username }) => {
-      const pics = ['https://via.placeholder.com/150?text=1','https://via.placeholder.com/150?text=2','https://via.placeholder.com/150?text=3'];
-      return <div className="mt-4"><h3 className="font-semibold mb-2">Photos</h3><div className="grid grid-cols-3 gap-2">{pics.map((src,i)=><img key={i} src={src} className="w-full h-24 object-cover rounded" alt=""/>)}</div></div>;
-    };
-    const ChatPanel = () => {
-      const [msgs] = useState([{id:1,user:'Sarah',text:'Excited?',time:'10:15'},{id:2,user:'You',text:'Yep!',time:'10:17'}]);
-      const [input, setInput] = useState('');
-      return <div className="flex flex-col h-64 border rounded overflow-hidden"><div className="flex-1 p-3 overflow-y-auto space-y-2">{msgs.map(m=><div key={m.id} className={m.user==='You'?'flex justify-end':'flex'}><div className={`px-3 py-2 rounded ${m.user==='You'?'bg-blue-600 text-white':'bg-gray-200 text-black'}`}><p className="text-sm">{m.text}</p><span className="text-xs text-gray-500 block text-right">{m.time}</span></div></div>)}</div><div className="border-t p-2 flex"><input className="flex-1 border px-3 py-2 rounded-l" placeholder="Type…" value={input} onChange={e=>setInput(e.target.value)}/><button className="px-4 bg-blue-600 text-white rounded-r">Send</button></div></div>;
-    };
+      // Mock data
+      const runs = [
+        { id: '1', title: 'Chatty 5K', description: 'Social 5K around Hyde Park.', userName: 'Sarah Chen', paceSecPerKm: 300, distanceKm: 5, status: 'planned', meetingPoint: { lat: 51.5074, lng: -0.1278 } },
+        { id: '2', title: 'Marathon Training Social', description: '10K prep run.', userName: 'Marcus Johnson', paceSecPerKm: 420, distanceKm: 10, status: 'planned', meetingPoint: { lat: 51.5033, lng: -0.1196 } },
+        { id: '3', title: 'Evening 8K', description: 'Relaxed city run.', userName: 'Priya Patel', paceSecPerKm: 360, distanceKm: 8, status: 'planned', meetingPoint: { lat: 51.5145, lng: -0.0755 } }
+      ];
 
-    // Detail modal
-    const RunDetailModal = ({ run, onClose }) => {
-      const { lat, lng } = run.meetingPoint;
-      const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+0066cc(${lng},${lat})/${lng},${lat},13/300x200?access_token=pk.eyJ1IjoiYWxi`;
-      return <div className="modal-backdrop"><div className="modal"><div className="close-btn" onClick={onClose}>×</div><h2 className="text-xl font-bold mb-2">{run.title}</h2><p className="mb-2 text-gray-700">{run.description}</p><img src={mapUrl} className="w-full h-32 object-cover rounded mb-4" alt=""/><InstagramGallery username={run.userName.replace(/\s+/g,'').toLowerCase()} /><div className="mt-4"><h3 className="font-semibold mb-2">Public Chat</h3><ChatPanel /></div></div></div>;
-    };
+      // Demo Gallery & Chat
+      function InstagramGallery() {
+        const pics = ['https://via.placeholder.com/150?text=1', 'https://via.placeholder.com/150?text=2', 'https://via.placeholder.com/150?text=3'];
+        return (
+          <div className="mt-4">
+            <h3 className="font-semibold mb-2">Photos</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {pics.map((src, i) => <img key={i} src={src} className="w-full h-24 object-cover rounded" alt="" />)}
+            </div>
+          </div>
+        );
+      }
+      function ChatPanel() {
+        const [msgs] = useState([{ id: 1, user: 'Sarah', text: 'Excited?', time: '10:15' }, { id: 2, user: 'You', text: 'Yep!', time: '10:17' }]);
+        const [input, setInput] = useState('');
+        return (
+          <div className="flex flex-col h-64 border rounded-lg overflow-hidden">
+            <div className="flex-1 p-3 overflow-y-auto space-y-2">
+              {msgs.map(m => <div key={m.id} className={m.user === 'You' ? 'flex justify-end' : 'flex'}><div className={`px-3 py-2 rounded ${m.user==='You'?'bg-blue-600 text-white':'bg-gray-200 text-black'}`}><p>{m.text}</p><span className="text-xs text-gray-500">{m.time}</span></div></div>)}
+            </div>
+            <div className="border-t p-2 flex">
+              <input className="flex-1 border px-3 py-2 rounded-l" value={input} onChange={e => setInput(e.target.value)} placeholder="Type…" />
+              <button className="px-4 bg-blue-600 text-white rounded-r">Send</button>
+            </div>
+          </div>
+        );
+      }
 
-    // Static map
-    const SimpleMap = ({ runs, onClick }) => {
-      const pins = runs.map(r=>`pin-s+0066cc(${r.meetingPoint.lng},${r.meetingPoint.lat})`).join(',');
-      const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/${pins}/-0.1278,51.5074,11/600x400?access_token=pk.eyJ1IjoiYWxi`;
-      return <div className="relative"><img src={url} className="w-full h-80 object-cover rounded mb-4" alt="Map"/><div className="absolute inset-0">{runs.map(r=>{const left=`${50+(r.meetingPoint.lng+0.1278)*30}%`;const top=`${50-(r.meetingPoint.lat-51.5074)*20}%`;return <div key={r.id} className="run-marker planned" style={{left,top,position:'absolute',transform:'translate(-50%,-50%)'}} onClick={()=>onClick(r)}>▶</div>;})}</div></div>;
-    };
+      // Detail modal
+      function RunDetailModal({ run, onClose }) {
+        const { lat, lng } = run.meetingPoint;
+        const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+0066cc(${lng},${lat})/${lng},${lat},13/300x200?access_token=pk.eyJ1IjoiYWxi`;
+        return (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <div className="close-btn" onClick={onClose}>×</div>
+              <h2 className="text-xl font-bold mb-2">{run.title}</h2>
+              <p className="mb-2 text-gray-700">{run.description}</p>
+              <img src={mapUrl} className="w-full h-32 object-cover rounded mb-4" alt="Route" />
+              <InstagramGallery />
+              <div className="mt-4">
+                <h3 className="font-semibold mb-2">Chat</h3>
+                <ChatPanel />
+              </div>
+            </div>
+          </div>
+        );
+      }
 
-    // Run card
-    const RunCard = ({ run, onView }) => <div className="bg-white p-4 rounded shadow hover:shadow-md"><div className="flex justify-between mb-2"><p className="font-semibold">{run.userName}</p><span className="text-blue-600">Planned</span></div><button onClick={()=>onView(run)} className="text-blue-600 underline">Details</button></div>;
+      // Static map
+      function SimpleMap({ runs, onClick }) {
+        const pins = runs.map(r => `pin-s+0066cc(${r.meetingPoint.lng},${r.meetingPoint.lat})`).join(',');
+        const url = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/${pins}/-0.1278,51.5074,11/600x400?access_token=pk.eyJ1IjoiYWxi`;
+        return (
+          <div className="relative">
+            <img src={url} className="w-full h-80 object-cover rounded mb-4" alt="Map" />
+            <div className="absolute inset-0">
+              {runs.map((r, i) => {
+                const left = `${50 + (r.meetingPoint.lng + 0.1278) * 30}%`;
+                const top = `${50 - (r.meetingPoint.lat - 51.5074) * 20}%`;
+                return <div key={i} className="run-marker planned" style={{ left, top, position: 'absolute', transform: 'translate(-50%,-50%)' }} onClick={() => onClick(r)}>▶</div>;
+              })}
+            </div>
+          </div>
+        );
+      }
 
-    // Main app
-    const MainApp = () => {
-      const { user, logout } = useAuth();
-      const [view,setView] = useState('map');
-      const [sel, setSel] = useState(null);
-      return <div className="h-screen flex flex-col"><header className="bg-white shadow p-4 flex justify-between"><div><button onClick={()=>setView('map')} className={view==='map'?'underline':''}>Map</button><button onClick={()=>setView('list')} className="ml-4">List</button></div><div><img src={user.avatar} className="w-8 h-8 rounded-full inline"/><button onClick={logout} className="ml-2 text-sm">Sign out</button></div></header><main className="flex-1 overflow-auto p-4">{view==='map'?<SimpleMap runs={runs} onClick={setSel}/> : <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{runs.map(r=><RunCard key={r.id} run={r} onView={setSel}/> )}</div>} {sel&&<RunDetailModal run={sel} onClose={()=>setSel(null)}/>}</main></div>;
-    };
+      // Run card
+      function RunCard({ run, onView }) {
+        return (
+          <div className="bg-white p-4 rounded-lg shadow hover:shadow-md">
+            <div className="flex justify-between mb-2">
+              <p className="font-semibold">{run.userName}</p>
+              <span className="text-blue-600">Planned</span>
+            </div>
+            <button onClick={() => onView(run)} className="text-blue-600 underline">Details</button>
+          </div>
+        );
+      }
 
-    // App entry
-    const App = () => {
-      const [accepted, setAccepted] = useState(false);
-      const { user } = useAuth();
-      if (!accepted) return <SafetyGate onAccept={() => setAccepted(true)} />;
-      if (!user) return <LoginScreen />;
-      return <MainApp />;
-    };
+      // Main app
+      function MainApp() {
+        const { user, logout } = useAuth();
+        const [view, setView] = useState('map');
+        const [selected, setSelected] = useState(null);
+        return (
+          <div className="h-screen flex flex-col bg-gray-50">
+            <header className="bg-white shadow p-4 flex justify-between items-center">
+              <nav className="flex gap-4">
+                <button onClick={() => setView('map')} className={view === 'map' ? 'underline' : ''}>Map</button>
+                <button onClick={() => setView('list')} className={view === 'list' ? 'underline' : ''}>List</button>
+              </nav>
+              <div className="flex items-center gap-4">
+                <img src={user.avatar} alt="avatar" className="w-8 h-8 rounded-full" />
+                <button onClick={logout} className="text-sm text-gray-600">Sign out</button>
+              </div>
+            </header>
+            <main className="flex-1 overflow-auto p-4">
+              {view === 'map'
+                ? <SimpleMap runs={runs} onClick={setSelected} />
+                : <div className="grid grid-cols-1 md:grid-cols-3 gap-4">{runs.map((r, i) => <RunCard key={i} run={r} onView={setSelected} />)}</div>
+              }
+              {selected && <RunDetailModal run={selected} onClose={() => setSelected(null)} />}
+            </main>
+          </div>
+        );
+      }
 
-    ReactDOM.render(<AuthProvider><App /></AuthProvider>, document.getElementById('root'));
-  })();
+      // App entry
+      function App() {
+        const [accepted, setAccepted] = useState(false);
+        const { user } = useAuth();
+        if (!accepted) return <SafetyGate onAccept={() => setAccepted(true)} />;
+        if (!user) return <LoginScreen />;
+        return <MainApp />;
+      }
+
+      ReactDOM.render(<AuthProvider><App /></AuthProvider>, document.getElementById('root'));
+    })();
   </script>
 </body>
 </html>
