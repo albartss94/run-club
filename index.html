@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Run Club MVP</title>
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+  <!-- React & Tailwind -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -32,6 +36,8 @@
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 99;}
     .modal { background: #fff; border-radius: 0.75rem; max-width: 450px; width: 95%; max-height: 92vh; overflow-y: auto; padding: 2rem 1.5rem 1.5rem 1.5rem; position: relative;}
     .close-btn { position: absolute; top: 0.6rem; right: 1rem; cursor: pointer; font-size: 1.7rem; color: #333;}
+    /* Ensure the map always fills the left panel */
+    #map { width: 100%; height: 100%; min-height: 600px; border-radius: 0; }
   </style>
 </head>
 <body>
@@ -43,42 +49,56 @@
   // ---- Mapbox token (yours) ----
   const MAPBOX_TOKEN = "pk.eyJ1IjoiYWxiYXJ0c3M5NCIsImEiOiJjbWM2NjNtejMwczFxMmlzYXVra3d3Z3FnIn0.DEgmqut6d9l4IOO_oGjVjg";
 
-  // ---- Mock Data with avatars ----
-  const runs = [
-    {
-      id: "1",
-      title: "Chatty 5K",
-      description: "Social 5K around Hyde Park.",
-      userName: "Sarah Chen",
-      userAvatar: "https://randomuser.me/api/portraits/women/8.jpg", // Asian girl
-      paceSecPerKm: 300,
-      distanceKm: 5,
-      status: "planned",
-      meetingPoint: { lat: 51.5074, lng: -0.1278 },
-    },
-    {
-      id: "2",
-      title: "Marathon Training Social",
-      description: "10K social run prep.",
-      userName: "Marcus Johnson",
-      userAvatar: "https://randomuser.me/api/portraits/men/22.jpg", // White male
-      paceSecPerKm: 420,
-      distanceKm: 10,
-      status: "planned",
-      meetingPoint: { lat: 51.5033, lng: -0.1196 },
-    },
-    {
-      id: "3",
-      title: "Evening 8K",
-      description: "Relaxed city run.",
-      userName: "Priya Patel",
-      userAvatar: "https://randomuser.me/api/portraits/women/15.jpg", // White girl
-      paceSecPerKm: 360,
-      distanceKm: 8,
-      status: "planned",
-      meetingPoint: { lat: 51.5145, lng: -0.0755 },
-    }
+  // ---- Generate 50+ demo runs scattered across London ----
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+  const avatarUrls = [
+    "https://randomuser.me/api/portraits/women/8.jpg",
+    "https://randomuser.me/api/portraits/men/22.jpg",
+    "https://randomuser.me/api/portraits/women/15.jpg"
   ];
+  const runNames = ["Sarah Chen", "Marcus Johnson", "Priya Patel"];
+  const runTitles = ["Chatty 5K", "Marathon Training Social", "Evening 8K", "Lunch Loop", "Morning Social", "Regents Park 10K", "River Thames Run", "Hyde Park Loops", "Clapham Speedwork", "Hackney Tempo"];
+  const runDescs = [
+    "Social 5K around Hyde Park.",
+    "10K social run prep.",
+    "Relaxed city run.",
+    "Easy loop at lunch.",
+    "Early morning easy pace.",
+    "Speed session in the park.",
+    "Sunset run by the river.",
+    "Hill sprints and good chat.",
+    "Community tempo effort.",
+    "Easy recovery jog."
+  ];
+  // Spread runs across key areas
+  const clusters = [
+    {name:"Hackney",lat:51.5465,lng:-0.0552,count:16},
+    {name:"Clapham",lat:51.4637,lng:-0.1384,count:11},
+    {name:"Hyde Park",lat:51.5073,lng:-0.1657,count:9},
+    {name:"Regents Park",lat:51.5313,lng:-0.1569,count:7},
+    {name:"Thames Riverside",lat:51.505,lng:-0.09,count:10}
+  ];
+  let runs = [];
+  let idx = 0;
+  clusters.forEach(clu => {
+    for(let i=0;i<clu.count;i++) {
+      const lat = clu.lat + randomInRange(-0.009,0.009);
+      const lng = clu.lng + randomInRange(-0.012,0.012);
+      runs.push({
+        id: (++idx).toString(),
+        title: runTitles[idx%runTitles.length],
+        description: runDescs[idx%runDescs.length],
+        userName: runNames[idx%runNames.length],
+        userAvatar: avatarUrls[idx%avatarUrls.length],
+        paceSecPerKm: 300 + 20*(idx%5),
+        distanceKm: 5 + (idx%7),
+        status: "planned",
+        meetingPoint: { lat, lng }
+      });
+    }
+  });
 
   // ---- Context & Auth ----
   const AuthContext = createContext(null);
@@ -178,12 +198,126 @@
     const { user, logout } = useAuth();
     const [selected, setSelected] = useState(null);
 
-    // Map dimensions for pin positioning
-    const MAP_W = 800, MAP_H = 600;
-    const MAP_CENTRE = { lat: 51.5074, lng: -0.1278 }; // London
+    // Dynamic Map is rendered outside React, see useEffect below
+    React.useEffect(() => {
+      // Mapbox cluster logic
+      mapboxgl.accessToken = MAPBOX_TOKEN;
+      const map = new mapboxgl.Map({
+        container: "map",
+        style: "mapbox://styles/mapbox/streets-v11",
+        center: [-0.1278, 51.5074],
+        zoom: 11,
+        minZoom: 9,
+        maxZoom: 16
+      });
+      // Transform runs to GeoJSON
+      const geoRuns = {
+        type: "FeatureCollection",
+        features: runs.map(r => ({
+          type: "Feature",
+          properties: {
+            id: r.id,
+            title: r.title,
+            description: r.description,
+            userName: r.userName,
+            userAvatar: r.userAvatar
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [r.meetingPoint.lng, r.meetingPoint.lat]
+          }
+        }))
+      };
+      map.on("load", function () {
+        map.addSource("runs", {
+          type: "geojson",
+          data: geoRuns,
+          cluster: true,
+          clusterMaxZoom: 13,
+          clusterRadius: 48
+        });
 
-    const pins = runs.map(r => `pin-s+0066cc(${r.meetingPoint.lng},${r.meetingPoint.lat})`).join(',');
-    const mapUrl = `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/${pins}/-0.1278,51.5074,11,0/${MAP_W}x${MAP_H}@2x?access_token=${MAPBOX_TOKEN}`;
+        map.addLayer({
+          id: "clusters",
+          type: "circle",
+          source: "runs",
+          filter: ["has", "point_count"],
+          paint: {
+            "circle-color": "#0066cc",
+            "circle-radius": [
+              "step", ["get", "point_count"], 20, 10, 25, 50, 35
+            ],
+            "circle-opacity": 0.7
+          }
+        });
+
+        map.addLayer({
+          id: "cluster-count",
+          type: "symbol",
+          source: "runs",
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field": "{point_count_abbreviated}",
+            "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
+            "text-size": 15
+          }
+        });
+
+        map.addLayer({
+          id: "unclustered-point",
+          type: "circle",
+          source: "runs",
+          filter: ["!", ["has", "point_count"]],
+          paint: {
+            "circle-color": "#ff4d4d",
+            "circle-radius": 9,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#fff"
+          }
+        });
+
+        // Cluster zoom in
+        map.on('click', 'clusters', function (e) {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+          const clusterId = features[0].properties.cluster_id;
+          map.getSource('runs').getClusterExpansionZoom(clusterId, function (err, zoom) {
+            if (err) return;
+            map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom });
+          });
+        });
+
+        // Run popup
+        map.on('click', 'unclustered-point', function (e) {
+          const props = e.features[0].properties;
+          const coordinates = e.features[0].geometry.coordinates.slice();
+          // Minimal popup, for MVP
+          new mapboxgl.Popup()
+            .setLngLat(coordinates)
+            .setHTML(`
+              <div style="display:flex;align-items:center;gap:10px;">
+                <img src="${props.userAvatar}" style="width:36px;height:36px;border-radius:50%;" />
+                <div>
+                  <strong>${props.title}</strong><br/>
+                  <span style="font-size:13px;color:#555;">${props.userName}</span>
+                </div>
+              </div>
+              <div style="margin-top:5px;font-size:13px;">${props.description}</div>
+            `)
+            .addTo(map);
+        });
+
+        // Change cursor
+        map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
+
+        // Clean up map on unmount
+        return () => map.remove();
+      });
+      // Remove map on unmount (React strict mode)
+      return () => {
+        document.getElementById("map").innerHTML = "";
+      };
+    }, []);
 
     return (
       <div className="h-screen flex flex-col bg-gray-50">
@@ -212,26 +346,9 @@
           </div>
         </header>
         <div className="flex flex-1 overflow-hidden">
-          {/* Map */}
+          {/* Dynamic Mapbox map */}
           <div className="flex-1 relative min-w-0">
-            <img src={mapUrl} alt="Map" className="w-full h-full object-cover" style={{minHeight:'600px', minWidth:'100%'}} />
-            {/* Pins */}
-            <div style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none'}}>
-              {runs.map((r,i)=>{
-                // Crude pixel conversion, only for MVP
-                const left = `${50 + (r.meetingPoint.lng - MAP_CENTRE.lng) * 130}%`;
-                const top = `${50 - (r.meetingPoint.lat - MAP_CENTRE.lat) * 280}%`;
-                return (
-                  <div
-                    key={r.id}
-                    className="run-marker planned"
-                    style={{ left, top, position:'absolute', transform:'translate(-50%,-50%)', pointerEvents:'auto'}}
-                    title={r.title}
-                    onClick={()=>setSelected(r)}
-                  >▶</div>
-                );
-              })}
-            </div>
+            <div id="map" style={{width:'100%',height:'100%',minHeight:'600px'}}></div>
           </div>
           {/* Sidebar */}
           <aside className="w-96 bg-white border-l p-4 overflow-y-auto">
