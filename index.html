@@ -122,7 +122,20 @@
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-lg shadow-lg text-center">
-          <h1 className="text-3xl mb-4">The Run Club</h1>
+          <div class="flex items-center gap-3 select-none">
+  <span style="font-family: 'Inter', 'Roboto', 'Montserrat', Arial, sans-serif; font-weight: 600; letter-spacing: .05em; font-size: 1.65rem; color: #111;">
+    the run club
+  </span>
+  <svg width="36" height="36" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Outer circle for 'club' & community -->
+    <circle cx="22" cy="22" r="20" stroke="#0066cc" stroke-width="2"/>
+    <!-- Stylised forward 'C' as a running track -->
+    <path d="M32 22c0 5.523-4.477 10-10 10s-10-4.477-10-10 4.477-10 10-10" stroke="#0066cc" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Minimal runner (head and swoosh body) -->
+    <circle cx="30" cy="16" r="2.2" fill="#0066cc"/>
+    <path d="M29.8 17.5c-2 1.5-3.3 3.7-3.8 5.8" stroke="#0066cc" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+</div>
           <button onClick={login} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded">
             <svg className="w-5 h-5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="white"/><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92z"/></svg>
             Continue with Google
