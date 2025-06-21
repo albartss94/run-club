@@ -36,8 +36,28 @@
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 99;}
     .modal { background: #fff; border-radius: 0.75rem; max-width: 450px; width: 95%; max-height: 92vh; overflow-y: auto; padding: 2rem 1.5rem 1.5rem 1.5rem; position: relative;}
     .close-btn { position: absolute; top: 0.6rem; right: 1rem; cursor: pointer; font-size: 1.7rem; color: #333;}
-    /* Ensure the map always fills the left panel */
     #map { width: 100%; height: 100%; min-height: 600px; border-radius: 0; }
+    .filter-chip {
+      @apply px-3 py-1 rounded-full bg-gray-100 text-gray-700 cursor-pointer border border-gray-200 hover:bg-blue-100 hover:text-blue-700 transition;
+      margin-right: 0.5rem;
+      margin-bottom: 0.3rem;
+      display: inline-block;
+      font-size: 0.95rem;
+    }
+    .filter-chip.selected {
+      background: #2563eb !important;
+      color: #fff !important;
+      border-color: #2563eb !important;
+    }
+    .filter-toggle {
+      @apply px-3 py-1 rounded bg-gray-100 border border-gray-300 cursor-pointer hover:bg-blue-100 transition text-sm;
+      margin-right: 0.7rem;
+    }
+    .filter-toggle.selected {
+      background: #2563eb !important;
+      color: #fff !important;
+      border-color: #2563eb !important;
+    }
   </style>
 </head>
 <body>
@@ -49,9 +69,18 @@
   // ---- Mapbox token (yours) ----
   const MAPBOX_TOKEN = "pk.eyJ1IjoiYWxiYXJ0c3M5NCIsImEiOiJjbWM2NjNtejMwczFxMmlzYXVra3d3Z3FnIn0.DEgmqut6d9l4IOO_oGjVjg";
 
+  // ---- User "GPS" location (Liverpool Street London) ----
+  const USER_GPS = { lat: 51.5175, lng: -0.0824 };
+
+  // ---- Social tags for demo ----
+  const SOCIAL_TAGS = ["Chatty", "Workout", "Long slow", "PB effort", "Meet new people"];
+
   // ---- Generate 50+ demo runs scattered across London ----
   function randomInRange(min, max) {
     return Math.random() * (max - min) + min;
+  }
+  function randomPick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
   }
   const avatarUrls = [
     "https://randomuser.me/api/portraits/women/8.jpg",
@@ -86,16 +115,25 @@
     for(let i=0;i<clu.count;i++) {
       const lat = clu.lat + randomInRange(-0.009,0.009);
       const lng = clu.lng + randomInRange(-0.012,0.012);
+      const paceSecPerKm = 180 + Math.floor(randomInRange(0, 300)); // 3:00/km to 8:00/km
+      const distanceKm = Math.round(randomInRange(1, 50));
+      const wingIt = Math.random() > 0.7;
+      const startTime = Date.now() + randomInRange(3600e3, 14*3600e3); // Now+1h to Now+14h
+      const social_tag = [randomPick(SOCIAL_TAGS)];
+      if(Math.random() > 0.7) social_tag.push(randomPick(SOCIAL_TAGS.filter(t=>!social_tag.includes(t))));
       runs.push({
         id: (++idx).toString(),
         title: runTitles[idx%runTitles.length],
         description: runDescs[idx%runDescs.length],
         userName: runNames[idx%runNames.length],
         userAvatar: avatarUrls[idx%avatarUrls.length],
-        paceSecPerKm: 300 + 20*(idx%5),
-        distanceKm: 5 + (idx%7),
+        paceSecPerKm,
+        distanceKm,
         status: "planned",
-        meetingPoint: { lat, lng }
+        meetingPoint: { lat, lng },
+        wingIt,
+        startTime,
+        social_tag
       });
     }
   });
@@ -119,6 +157,26 @@
     const m = Math.floor(spk / 60), s = spk % 60;
     return `${m}:${s.toString().padStart(2, '0')}/km`;
   };
+  function haversine(lat1, lng1, lat2, lng2) {
+    const toRad = x => x * Math.PI / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  // ---- Filter logic ----
+  function filterRuns(all, filt) {
+    return all.filter(run => {
+      if(run.paceSecPerKm < filt.pace[0]*60 || run.paceSecPerKm > filt.pace[1]*60) return false;
+      if(run.distanceKm < filt.distance[0] || run.distanceKm > filt.distance[1]) return false;
+      if(filt.runStyle !== "all" && (filt.runStyle === "planned" && run.wingIt) || (filt.runStyle === "wing" && !run.wingIt)) return false;
+      if(filt.tags.length > 0 && !filt.tags.some(tag => (run.social_tag||[]).includes(tag))) return false;
+      // Only runs starting after now
+      if(run.startTime < Date.now()) return false;
+      return true;
+    });
+  }
 
   // ---- Components ----
   function SafetyGate({ onAccept }) {
@@ -152,7 +210,6 @@
     );
   }
 
-  // --- Updated InstagramGallery ---
   function InstagramGallery() {
     const pics = [
       "https://images.pexels.com/photos/726484/pexels-photo-726484.jpeg",
@@ -194,13 +251,67 @@
     );
   }
 
+  function FiltersBar({ value, setValue }) {
+    // Controlled range sliders and toggles for pace/distance/runstyle/tags
+    return (
+      <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200 flex flex-col gap-2">
+        <div className="flex items-center gap-4">
+          <span className="font-medium text-sm mr-1">Pace</span>
+          <input type="range" min="3" max="8" step="0.1" value={value.pace[0]} onChange={e=>setValue(v=>({...v,pace:[+e.target.value, v.pace[1]]}))} className="w-24" />
+          <span className="text-xs w-10 text-right">{value.pace[0].toFixed(1)}</span>
+          <span>-</span>
+          <input type="range" min="3" max="8" step="0.1" value={value.pace[1]} onChange={e=>setValue(v=>({...v,pace:[v.pace[0], +e.target.value]}))} className="w-24" />
+          <span className="text-xs w-10">{value.pace[1].toFixed(1)} min/km</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="font-medium text-sm mr-1">Distance</span>
+          <input type="range" min="1" max="50" value={value.distance[0]} onChange={e=>setValue(v=>({...v,distance:[+e.target.value, v.distance[1]]}))} className="w-16" />
+          <span className="text-xs w-8 text-right">{value.distance[0]}</span>
+          <span>-</span>
+          <input type="range" min="1" max="50" value={value.distance[1]} onChange={e=>setValue(v=>({...v,distance:[v.distance[0], +e.target.value]}))} className="w-16" />
+          <span className="text-xs w-8">{value.distance[1]} km</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">Run style</span>
+          <button className={"filter-toggle" + (value.runStyle==="all"?" selected":"")} onClick={()=>setValue(v=>({...v,runStyle:"all"}))}>All</button>
+          <button className={"filter-toggle" + (value.runStyle==="planned"?" selected":"")} onClick={()=>setValue(v=>({...v,runStyle:"planned"}))}>Planned route</button>
+          <button className={"filter-toggle" + (value.runStyle==="wing"?" selected":"")} onClick={()=>setValue(v=>({...v,runStyle:"wing"}))}>Wing it</button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-sm">Tags</span>
+          {SOCIAL_TAGS.map(tag =>
+            <span key={tag} className={"filter-chip" + (value.tags.includes(tag) ? " selected" : "")}
+              onClick={()=>{
+                setValue(v=>{
+                  const tags = v.tags.includes(tag) ? v.tags.filter(t=>t!==tag) : [...v.tags, tag];
+                  return {...v, tags};
+                });
+              }}>{tag}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   function MainApp() {
     const { user, logout } = useAuth();
     const [selected, setSelected] = useState(null);
+    const [filter, setFilter] = useState({
+      pace: [3,8],
+      distance: [1,50],
+      runStyle: "all", // all/planned/wing
+      tags: []
+    });
+    // Expose setSelected globally so map clicks can trigger React modal
+    window.openRunModalById = rid => {
+      const found = runs.find(r=>r.id===rid);
+      if(found) setSelected(found);
+    };
+    // Filtered runs
+    const filteredRuns = filterRuns(runs, filter);
 
-    // Dynamic Map is rendered outside React, see useEffect below
+    // Map logic
     React.useEffect(() => {
-      // Mapbox cluster logic
       mapboxgl.accessToken = MAPBOX_TOKEN;
       const map = new mapboxgl.Map({
         container: "map",
@@ -208,12 +319,22 @@
         center: [-0.1278, 51.5074],
         zoom: 11,
         minZoom: 9,
-        maxZoom: 16
+        maxZoom: 16,
+        dragRotate: false, // Prevent rotation
+        touchPitch: false
       });
-      // Transform runs to GeoJSON
+      map.addControl(new mapboxgl.NavigationControl({showCompass:true}), 'top-right');
+
+      // Add user "GPS" marker
+      const userMarker = new mapboxgl.Marker({color:'#22d3ee'})
+        .setLngLat([USER_GPS.lng, USER_GPS.lat])
+        .setPopup(new mapboxgl.Popup().setHTML('<b>Your location (Liverpool St)</b>'))
+        .addTo(map);
+
+      // Turn filteredRuns into geojson
       const geoRuns = {
         type: "FeatureCollection",
-        features: runs.map(r => ({
+        features: filteredRuns.map(r => ({
           type: "Feature",
           properties: {
             id: r.id,
@@ -229,6 +350,7 @@
         }))
       };
       map.on("load", function () {
+        if(map.getSource("runs")) map.removeSource("runs");
         map.addSource("runs", {
           type: "geojson",
           data: geoRuns,
@@ -286,38 +408,21 @@
           });
         });
 
-        // Run popup
+        // Run popup AND open React modal!
         map.on('click', 'unclustered-point', function (e) {
           const props = e.features[0].properties;
-          const coordinates = e.features[0].geometry.coordinates.slice();
-          // Minimal popup, for MVP
-          new mapboxgl.Popup()
-            .setLngLat(coordinates)
-            .setHTML(`
-              <div style="display:flex;align-items:center;gap:10px;">
-                <img src="${props.userAvatar}" style="width:36px;height:36px;border-radius:50%;" />
-                <div>
-                  <strong>${props.title}</strong><br/>
-                  <span style="font-size:13px;color:#555;">${props.userName}</span>
-                </div>
-              </div>
-              <div style="margin-top:5px;font-size:13px;">${props.description}</div>
-            `)
-            .addTo(map);
+          window.openRunModalById(props.id);
         });
 
         // Change cursor
         map.on('mouseenter', 'clusters', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'clusters', () => map.getCanvas().style.cursor = '');
-
-        // Clean up map on unmount
-        return () => map.remove();
       });
-      // Remove map on unmount (React strict mode)
+      // Remove map on unmount
       return () => {
-        document.getElementById("map").innerHTML = "";
+        map.remove();
       };
-    }, []);
+    }, [JSON.stringify(filteredRuns)]);
 
     return (
       <div className="h-screen flex flex-col bg-gray-50">
@@ -352,22 +457,37 @@
           </div>
           {/* Sidebar */}
           <aside className="w-96 bg-white border-l p-4 overflow-y-auto">
+            <FiltersBar value={filter} setValue={setFilter} />
             <h2 className="text-lg font-semibold mb-4">Upcoming Runs</h2>
             <div className="space-y-3">
-              {runs.map(r => (
-                <div key={r.id} className="bg-white p-4 rounded-lg shadow hover:shadow-md">
+              {filteredRuns.length === 0 && (
+                <div className="text-gray-500 text-center py-12">No runs match your filters.</div>
+              )}
+              {filteredRuns.map(r => {
+                const distance = haversine(USER_GPS.lat, USER_GPS.lng, r.meetingPoint.lat, r.meetingPoint.lng);
+                return (
+                <div key={r.id} className="bg-white p-4 rounded-lg shadow hover:shadow-md relative">
                   <div className="flex items-center gap-3 mb-2">
                     <img src={r.userAvatar} alt={r.userName} className="w-9 h-9 rounded-full" />
                     <div>
                       <p className="font-semibold">{r.title}</p>
                       <p className="text-sm text-gray-600">{r.userName}</p>
                     </div>
+                    <span className="ml-auto font-semibold text-blue-700 text-xs px-2 py-1 bg-blue-50 rounded">
+                      {distance.toFixed(1)} km
+                    </span>
                   </div>
                   <p className="text-sm text-gray-600">{formatPace(r.paceSecPerKm)} • {r.distanceKm}km</p>
                   <p className="text-xs text-gray-500 mt-1">{r.description}</p>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {r.social_tag && r.social_tag.map(tag =>
+                      <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">{tag}</span>
+                    )}
+                    {r.wingIt && <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">Wing it</span>}
+                  </div>
                   <button onClick={() => setSelected(r)} className="mt-2 text-blue-600 hover:underline text-sm">View Details</button>
                 </div>
-              ))}
+              )})}
             </div>
           </aside>
         </div>
