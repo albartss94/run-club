@@ -43,7 +43,7 @@
   // ---- Mapbox token (yours) ----
   const MAPBOX_TOKEN = "pk.eyJ1IjoiYWxiYXJ0c3M5NCIsImEiOiJjbWM2NjNtejMwczFxMmlzYXVra3d3Z3FnIn0.DEgmqut6d9l4IOO_oGjVjg";
 
-  // ---- Mock Data with new avatars ----
+  // ---- Mock Data with avatars ----
   const runs = [
     {
       id: "1",
@@ -132,10 +132,25 @@
     );
   }
 
+  // --- Updated InstagramGallery ---
   function InstagramGallery() {
-    const pics = ['https://via.placeholder.com/150?text=1','https://via.placeholder.com/150?text=2','https://via.placeholder.com/150?text=3'];
-    return <div className="mt-4"><h3 className="font-semibold mb-2">Photos</h3><div className="grid grid-cols-3 gap-2">{pics.map((src,i)=><img key={i} src={src} className="w-full h-24 object-cover rounded" alt="" />)}</div></div>;
+    const pics = [
+      "https://images.pexels.com/photos/726484/pexels-photo-726484.jpeg",
+      "https://images.pexels.com/photos/9828319/pexels-photo-9828319.jpeg",
+      "https://images.pexels.com/photos/15509934/pexels-photo-15509934.jpeg"
+    ];
+    return (
+      <div className="mt-4">
+        <h3 className="font-semibold mb-2">Photos</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {pics.map((src, i) => (
+            <img key={i} src={src} className="w-full h-24 object-cover rounded" alt="" />
+          ))}
+        </div>
+      </div>
+    );
   }
+
   function ChatPanel() {
     const [msgs] = useState([{id:1,user:'Sarah',text:'Excited?',time:'10:15'},{id:2,user:'You',text:'Yep!',time:'10:17'}]);
     const [input, setInput] = useState('');
